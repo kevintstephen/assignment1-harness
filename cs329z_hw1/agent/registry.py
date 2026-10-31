@@ -24,6 +24,9 @@ class ToolRegistry:
             for tool in self._tools
         ]
 
+    def get(self, name: str) -> ToolSpec | None:
+        return self._by_name.get(name)
+
     def validate(self, name: str, args: dict) -> ToolResult | None:
         return self._check(name, args)
 

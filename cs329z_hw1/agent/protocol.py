@@ -10,8 +10,7 @@ OPEN = "<tool_call>"
 CLOSE = "</tool_call>"
 
 _INSTRUCTIONS = """\
-Your entire reply is one tool call and nothing else. Do not compute the result, echo the text, wait, or write the tool's output yourself. An empty reply is wrong. Do not wrap the call in a Markdown fence.
-
+When you need a tool, your entire reply is one tool call and nothing else. Do not compute the result, echo the text, wait, or write the tool's output yourself. An empty reply is wrong. Do not wrap the call in a Markdown fence. When the tool results are enough to answer, reply with the answer and no tool call. A reply with no tool call is the final answer and must state the fact. Saying you will look something up is not an answer: put that lookup in the tool call in the same reply, using the shape below. The JSON must contain a name and an arguments object. An arguments object by itself is not a tool call.
 <tool_call>
 {"name": "add", "arguments": {"a": 17, "b": 25}}
 </tool_call>
