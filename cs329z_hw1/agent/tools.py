@@ -1,20 +1,29 @@
-"""Cardinal tool stubs for Problem 8.
+"""Cardinal tools for the agent session.
 
-The functions are registered so the model can see them. Later problems
-replace the bodies. Nothing here reads the email archive.
+The email archive is read when a tool runs, not when a session is created.
 """
 
 from __future__ import annotations
 
+import contextvars
+
 from cs329z_hw1.cardinal import CARDINAL_TOOLS, cardinal_spec
 from cs329z_hw1.types import AgentConfig, ToolSpec
 
+# One value per conversation. A module global is overwritten when several
+# conversations create sessions at the same time, and a tool then reads
+# another conversation's memory directory.
+_config_var: contextvars.ContextVar[AgentConfig | None] = contextvars.ContextVar(
+    "cs329z_agent_config",
+    default=None,
+)
+
 _DESCRIPTIONS = {
-    "search_emails": "Find messages in the archive that match a query.",
-    "read_email": "Return one message by its id.",
+    "search_emails": "Find messages in the archive for a question about an email or a thread. Pass the question as query. Each hit has an id, subject, sender, date, and a short quote.",
+    "read_email": "Return one archive message by its id, including the subject, sender, date, and body.",
     "email_qa": "Answer one question from the archive.",
     "daily_digest": "Summarize the messages sent on one calendar date.",
-    "search_docs": "Search company documents with the question as the query. Each hit gives a doc_id, a title, a line number, and a quote. When hits disagree, trust the latest date in the id or title.",
+    "search_docs": "Search company documents for a question about a policy or a company document. Pass the question as query. Each hit gives a doc_id, a title, a line number, and a quote. When hits disagree, trust the latest date in the id or title.",
     "read_doc": "Read one document from start_line, the line on a hit or 1. Returns that block and the line number to pass in order to continue.",
     "run_terminal": "Run one shell command. emails.jsonl is in the workspace; count, filter, or list its records with python3 -c '...'. Here-documents are rejected. A large result names a file in the workspace that a later command can read.",
     "remember": "Save one fact for a later session.",
@@ -24,19 +33,41 @@ _DESCRIPTIONS = {
 
 
 def search_emails(query: str, k: int = 5) -> str:
-    return "Email search is not available yet."
+    from cs329z_hw1.agent.emails import search_messages
+    return search_messages(query, k)
 
 
 def read_email(email_id: str) -> str:
-    return "Reading a message is not available yet."
+    from cs329z_hw1.agent.emails import read_message
+    return read_message(email_id)
 
 
 def email_qa(question: str) -> str:
-    return "Question answering is not available yet."
+    from cs329z_hw1.agent.emails import search_email_records
+    from cs329z_hw1.pipelines.email_qa import answer_question
+
+    config = _require_config("email_qa")
+    if config.aux_lm is None:
+        raise RuntimeError("email_qa was called before a session was created.")
+    result = answer_question(question, search_email_records, config.aux_lm)
+    answer = result.get("answer")
+    if not answer:
+        return "No answer was found in the archive."
+    support = [item for item in result.get("support") or [] if item]
+    if support:
+        return f"{answer}\nSupport: {', '.join(support)}"
+    return str(answer)
 
 
 def daily_digest(date: str) -> str:
-    return "The daily summary is not available yet."
+    from cs329z_hw1.data import emails_on
+    from cs329z_hw1.pipelines.digest import write_daily_digest
+
+    config = _require_config("daily_digest")
+    if config.aux_lm is None:
+        raise RuntimeError("daily_digest was called before a session was created.")
+    summary = write_daily_digest(emails_on(date), config.aux_lm)
+    return f"Summary of the emails sent on {date}:\n{summary}"
 
 def search_docs(query: str, k: int = 5) -> str:
     from cs329z_hw1.pipelines.docs import format_search, search_documents, shared_doc_index
@@ -46,33 +77,38 @@ def read_doc(doc_id: str, start_line: int = 1) -> str:
     from cs329z_hw1.pipelines.docs import format_window, read_document, shared_doc_index
     return format_window(read_document(shared_doc_index(), doc_id, start_line))
 
-_config: AgentConfig | None = None
+def _require_config(name: str) -> AgentConfig:
+    config = _config_var.get()
+    if config is None:
+        raise RuntimeError(f"{name} was called before a session was created.")
+    return config
 
 
 def run_terminal(cmd: str) -> str:
     from cs329z_hw1.agent.terminal import observe
-    if _config is None:
-        raise RuntimeError("run_terminal was called before a session was created.")
-    return observe(_config, cmd) 
+    return observe(_require_config("run_terminal"), cmd)
 
 def remember(fact: str) -> str:
     from cs329z_hw1.agent.memory import save_fact
-    if _config is None or _config.memory_dir is None:
+    config = _require_config("remember")
+    if config.memory_dir is None:
         raise RuntimeError("remember was called before a session was created.")
-    return save_fact(_config.memory_dir, fact)
+    return save_fact(config.memory_dir, fact)
 
 
 def recall(query: str) -> str:
     from cs329z_hw1.agent.memory import recall
-    if _config is None or _config.memory_dir is None:
+    config = _require_config("recall")
+    if config.memory_dir is None:
         raise RuntimeError("recall was called before a session was created.")
-    return recall(_config.memory_dir, query)
+    return recall(config.memory_dir, query)
 
 
 def ask_user(question: str) -> str:
-    if _config is None or _config.user is None:
+    config = _require_config("ask_user")
+    if config.user is None:
         raise RuntimeError("ask_user was called before a session was created.")
-    return _config.user.ask(question)
+    return config.user.ask(question)
 
 
 _FUNCTIONS = {
@@ -94,8 +130,7 @@ def _spec(name: str) -> ToolSpec:
 
 
 def tools_for_session(tools: list[ToolSpec] | None, config: AgentConfig) -> list[ToolSpec]:
-    global _config
-    _config = config
+    _config_var.set(config)
     if tools is None:
         return [_spec(name) for name in CARDINAL_TOOLS]
 

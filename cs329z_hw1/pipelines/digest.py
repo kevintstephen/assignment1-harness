@@ -19,6 +19,7 @@ Rules:
 - Write at most 250 words. Prefer 150-220. Do not pad.
 - Reply with the briefing only. No title, no preamble, no word count.
 - Open with the urgent items. For each urgent email you MUST use the proper name of the company, project, site, or person the email is about. A paraphrase without that name is wrong.
+- Write a summary of what the emails report, in declarative sentences: who asked for what, the amount, and the deadline. Do not address the reader, do not write a to-do list, and do not open with "Act today".
 - Then cover remaining mail briefly: requests, deadlines, meetings, personal notes worth seeing.
 - Collapse follow-ups in the same thread into one item.
 - Do not invent senders, companies, or facts that are not in the listed emails.

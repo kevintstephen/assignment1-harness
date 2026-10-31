@@ -25,6 +25,11 @@ def save_fact(memory_dir: Path, fact: str) -> str:
     return "Saved."
 
 
+def stored_facts(memory_dir: Path) -> list[str]:
+    """Facts in the order they were saved. Empty when nothing is stored."""
+    return _load(memory_dir)
+
+
 def recall(memory_dir: Path, query: str) -> str:
     """Return every stored fact, those that share a query token first.
 

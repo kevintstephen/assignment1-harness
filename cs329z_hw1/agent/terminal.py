@@ -38,9 +38,13 @@ def _format(workspace: Path, result: sandbox.TerminalResult) -> str:
     if count_tokens(stdout) + count_tokens(stderr) > SHOW_TOKENS:
         if stdout:
             path = _save(workspace, stdout)
+            head = _head(stdout, SHOW_TOKENS // 2)
+            lines = stdout.splitlines()
+            last = lines[-1] if lines else ""
+            tail = f"The last line is: {last}\n" if last and len(last) <= 200 and last not in head else ""
             parts.append(
-                f"stdout is {len(stdout.splitlines())} lines and was saved to {path.name}. "
-                "Read one line with python3 -c or sed. First part:\n" + _head(stdout, SHOW_TOKENS // 2)
+                f"stdout was saved to {path.name}. {tail}"
+                "Read one line with python3 -c or sed. First part:\n" + head
             )
         if stderr:
             parts.append("stderr:\n" + _head(stderr, SHOW_TOKENS // 4))
